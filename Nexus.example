@@ -1,0 +1,1298 @@
+-- ═══════════════════════════════════════════════
+--  SERVICES
+-- ═══════════════════════════════════════════════
+local Players          = game:GetService("Players")
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService       = game:GetService("RunService")
+local CoreGui          = game:GetService("CoreGui")
+local LocalPlayer      = Players.LocalPlayer
+
+-- ═══════════════════════════════════════════════
+--  TEMA WARNA
+-- ═══════════════════════════════════════════════
+local T = {
+    BG_MAIN      = Color3.fromRGB(10, 10, 12),
+    BG_SIDEBAR   = Color3.fromRGB(14, 14, 17),
+    BG_PAGE      = Color3.fromRGB(18, 18, 22),
+    BG_ELEMENT   = Color3.fromRGB(24, 24, 30),
+    BG_HOVER     = Color3.fromRGB(32, 32, 40),
+    BG_ACTIVE    = Color3.fromRGB(38, 38, 48),
+    ACCENT       = Color3.fromRGB(110, 100, 255),
+    ACCENT_DIM   = Color3.fromRGB(70,  63,  160),
+    ACCENT_GLOW  = Color3.fromRGB(150, 140, 255),
+    BORDER       = Color3.fromRGB(40,  40,  52),
+    BORDER_B     = Color3.fromRGB(70,  70,  90),
+    TEXT1        = Color3.fromRGB(235, 235, 245),
+    TEXT2        = Color3.fromRGB(150, 150, 170),
+    TEXT3        = Color3.fromRGB(80,  80,  100),
+    SUCCESS      = Color3.fromRGB(80,  210, 130),
+    WARNING      = Color3.fromRGB(255, 190, 60),
+    DANGER       = Color3.fromRGB(255, 80,  80),
+    TOG_ON       = Color3.fromRGB(100, 90,  255),
+    TOG_OFF      = Color3.fromRGB(45,  45,  60),
+    TOG_KNOB     = Color3.fromRGB(240, 240, 250),
+}
+
+-- ═══════════════════════════════════════════════
+--  UTILITAS
+-- ═══════════════════════════════════════════════
+local function tw(obj, props, t, style, dir)
+    local ok, err = pcall(function()
+        TweenService:Create(obj,
+            TweenInfo.new(t or 0.2, style or Enum.EasingStyle.Quart, dir or Enum.EasingDirection.Out),
+            props
+        ):Play()
+    end)
+end
+
+local function corner(parent, r)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, r or 8)
+    c.Parent = parent
+    return c
+end
+
+local function stroke(parent, color, thick)
+    local s = Instance.new("UIStroke")
+    s.Color = color or T.BORDER
+    s.Thickness = thick or 1
+    s.Parent = parent
+    return s
+end
+
+local function newLabel(parent, txt, size, color, font, xa, ya)
+    local l = Instance.new("TextLabel")
+    l.BackgroundTransparency = 1
+    l.Text       = txt   or ""
+    l.TextSize   = size  or 13
+    l.TextColor3 = color or T.TEXT1
+    l.Font       = font  or Enum.Font.GothamSemibold
+    l.TextXAlignment = xa or Enum.TextXAlignment.Left
+    l.TextYAlignment = ya or Enum.TextYAlignment.Center
+    l.Parent = parent
+    return l
+end
+
+local function newFrame(parent, size, pos, color, zindex)
+    local f = Instance.new("Frame")
+    f.Size = size or UDim2.new(1,0,1,0)
+    f.Position = pos or UDim2.new(0,0,0,0)
+    f.BackgroundColor3 = color or T.BG_ELEMENT
+    f.BorderSizePixel = 0
+    f.ZIndex = zindex or 10
+    f.Parent = parent
+    return f
+end
+
+local function makeDraggable(frame, handle)
+    handle = handle or frame
+    local drag, dragInput, mPos, fPos = false, nil, nil, nil
+    handle.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then
+            drag = true; mPos = i.Position; fPos = frame.Position
+            i.Changed:Connect(function()
+                if i.UserInputState == Enum.UserInputState.End then drag = false end
+            end)
+        end
+    end)
+    handle.InputChanged:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseMovement then dragInput = i end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if i == dragInput and drag then
+            local d = i.Position - mPos
+            frame.Position = UDim2.new(fPos.X.Scale, fPos.X.Offset + d.X, fPos.Y.Scale, fPos.Y.Offset + d.Y)
+        end
+    end)
+end
+
+-- ═══════════════════════════════════════════════
+--  HAPUS GUI LAMA
+-- ═══════════════════════════════════════════════
+pcall(function()
+    local old = CoreGui:FindFirstChild("NexusHub")
+    if old then old:Destroy() end
+end)
+pcall(function()
+    local old = LocalPlayer.PlayerGui:FindFirstChild("NexusHub")
+    if old then old:Destroy() end
+end)
+
+-- ═══════════════════════════════════════════════
+--  ROOT GUI
+-- ═══════════════════════════════════════════════
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "NexusHub"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local ok = pcall(function() ScreenGui.Parent = CoreGui end)
+if not ok or not ScreenGui.Parent then
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- ═══════════════════════════════════════════════
+--  MAIN FRAME
+-- ═══════════════════════════════════════════════
+local SizeX, SizeY = 600, 400
+local Main = newFrame(ScreenGui,
+    UDim2.new(0, SizeX, 0, SizeY),
+    UDim2.new(0.5, -SizeX/2, 0.5, -SizeY/2),
+    T.BG_MAIN, 10
+)
+corner(Main, 12)
+stroke(Main, T.BORDER, 1)
+makeDraggable(Main)
+
+-- animasi muncul
+Main.BackgroundTransparency = 1
+tw(Main, {BackgroundTransparency = 0}, 0.35)
+
+-- ═══════════════════════════════════════════════
+--  TOPBAR
+-- ═══════════════════════════════════════════════
+local TOPBAR_H = 46
+local TopBar = newFrame(Main, UDim2.new(1,0,0,TOPBAR_H), UDim2.new(0,0,0,0), T.BG_SIDEBAR, 11)
+corner(TopBar, 12)
+
+-- patch bawah topbar agar tidak ada lengkungan di bawah
+local topPatch = newFrame(TopBar, UDim2.new(1,0,0,14), UDim2.new(0,0,1,-14), T.BG_SIDEBAR, 11)
+
+-- garis aksen bawah topbar
+local topLine = newFrame(TopBar, UDim2.new(1,0,0,1), UDim2.new(0,0,1,-1), T.ACCENT, 12)
+topLine.BackgroundTransparency = 0.55
+
+-- logo dot
+local dot = newFrame(TopBar, UDim2.new(0,7,0,7), UDim2.new(0,16,0.5,-3), T.ACCENT, 12)
+corner(dot, 4)
+
+-- judul
+local titleLbl = newLabel(TopBar, "Nexus Hub", 14, T.TEXT1, Enum.Font.GothamBold)
+titleLbl.Size = UDim2.new(0,200,1,0)
+titleLbl.Position = UDim2.new(0,30,0,0)
+titleLbl.ZIndex = 12
+
+-- subtitle
+local subLbl = newLabel(TopBar, "Delta Executor", 11, T.TEXT3, Enum.Font.Gotham)
+subLbl.Size = UDim2.new(0,150,1,0)
+subLbl.Position = UDim2.new(0,118,0,0)
+subLbl.ZIndex = 12
+
+-- ── TOMBOL CLOSE ──────────────────────────────
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0,28,0,28)
+CloseBtn.Position = UDim2.new(1,-38,0.5,-14)
+CloseBtn.BackgroundColor3 = T.BG_ELEMENT
+CloseBtn.BorderSizePixel = 0
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = T.TEXT2
+CloseBtn.TextSize = 11
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.ZIndex = 12
+CloseBtn.Parent = TopBar
+corner(CloseBtn, 6)
+CloseBtn.MouseEnter:Connect(function() tw(CloseBtn,{BackgroundColor3=T.DANGER,TextColor3=T.TEXT1},0.12) end)
+CloseBtn.MouseLeave:Connect(function() tw(CloseBtn,{BackgroundColor3=T.BG_ELEMENT,TextColor3=T.TEXT2},0.12) end)
+CloseBtn.MouseButton1Click:Connect(function()
+    tw(Main, {Size = UDim2.new(0,SizeX,0,0), Position = UDim2.new(0.5,-SizeX/2,0.5,0)}, 0.25, Enum.EasingStyle.Quart)
+    task.delay(0.28, function() ScreenGui:Destroy() end)
+end)
+
+-- ── TOMBOL MINIMIZE ───────────────────────────
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0,28,0,28)
+MinBtn.Position = UDim2.new(1,-70,0.5,-14)
+MinBtn.BackgroundColor3 = T.BG_ELEMENT
+MinBtn.BorderSizePixel = 0
+MinBtn.Text = "—"
+MinBtn.TextColor3 = T.TEXT2
+MinBtn.TextSize = 11
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.ZIndex = 12
+MinBtn.Parent = TopBar
+corner(MinBtn, 6)
+
+local minimized = false
+MinBtn.MouseEnter:Connect(function() tw(MinBtn,{BackgroundColor3=T.WARNING,TextColor3=T.TEXT1},0.12) end)
+MinBtn.MouseLeave:Connect(function() tw(MinBtn,{BackgroundColor3=T.BG_ELEMENT,TextColor3=T.TEXT2},0.12) end)
+MinBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    if minimized then
+        tw(Main,{Size=UDim2.new(0,SizeX,0,TOPBAR_H)},0.28,Enum.EasingStyle.Quart)
+    else
+        tw(Main,{Size=UDim2.new(0,SizeX,0,SizeY)},0.28,Enum.EasingStyle.Quart)
+    end
+end)
+
+-- ═══════════════════════════════════════════════
+--  SIDEBAR
+-- ═══════════════════════════════════════════════
+local SIDEBAR_W = 148
+
+local Sidebar = newFrame(Main,
+    UDim2.new(0,SIDEBAR_W,1,-TOPBAR_H),
+    UDim2.new(0,0,0,TOPBAR_H),
+    T.BG_SIDEBAR, 11
+)
+corner(Sidebar, 12)
+
+-- patch atas sidebar (agar tidak ada lengkungan di atas)
+local sidePatch = newFrame(Sidebar, UDim2.new(1,0,0,14), UDim2.new(0,0,0,0), T.BG_SIDEBAR, 11)
+
+-- garis kanan sidebar
+local sideRight = newFrame(Sidebar, UDim2.new(0,1,1,0), UDim2.new(1,-1,0,0), T.BORDER, 11)
+
+-- ── SCROLL LIST PAGE ──────────────────────────
+local PageScroll = Instance.new("ScrollingFrame")
+PageScroll.Size = UDim2.new(1,-6,1,-14)
+PageScroll.Position = UDim2.new(0,3,0,12)
+PageScroll.BackgroundTransparency = 1
+PageScroll.BorderSizePixel = 0
+PageScroll.ScrollBarThickness = 2
+PageScroll.ScrollBarImageColor3 = T.ACCENT_DIM
+PageScroll.CanvasSize = UDim2.new(0,0,0,0)
+PageScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+PageScroll.ZIndex = 12
+PageScroll.Parent = Sidebar
+
+local pageLayout = Instance.new("UIListLayout")
+pageLayout.Padding = UDim.new(0,4)
+pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+pageLayout.Parent = PageScroll
+
+local pagePad = Instance.new("UIPadding")
+pagePad.PaddingTop = UDim.new(0,6)
+pagePad.PaddingLeft = UDim.new(0,4)
+pagePad.PaddingRight = UDim.new(0,4)
+pagePad.Parent = PageScroll
+
+-- ═══════════════════════════════════════════════
+--  CONTENT AREA
+-- ═══════════════════════════════════════════════
+local ContentArea = newFrame(Main,
+    UDim2.new(1,-SIDEBAR_W,1,-TOPBAR_H),
+    UDim2.new(0,SIDEBAR_W,0,TOPBAR_H),
+    T.BG_PAGE, 11
+)
+corner(ContentArea, 12)
+-- patch atas
+local caPatch = newFrame(ContentArea, UDim2.new(1,0,0,14), UDim2.new(0,0,0,0), T.BG_PAGE, 11)
+-- patch kiri
+local caLeft  = newFrame(ContentArea, UDim2.new(0,14,1,0), UDim2.new(0,0,0,0), T.BG_PAGE, 11)
+
+-- ═══════════════════════════════════════════════
+--  NOTIFIKASI SYSTEM
+-- ═══════════════════════════════════════════════
+local notifStack = {}
+
+local function Notify(cfg)
+    cfg = cfg or {}
+    local title    = cfg.Title    or "Info"
+    local text     = cfg.Text     or ""
+    local duration = cfg.Duration or 3
+    local ntype    = cfg.Type     or "info"
+    local typeColor = ({
+        info    = T.ACCENT,
+        success = T.SUCCESS,
+        warning = T.WARNING,
+        danger  = T.DANGER,
+    })[ntype] or T.ACCENT
+
+    for _, n in ipairs(notifStack) do
+        tw(n, {Position = UDim2.new(1,-258, n.Position.Y.Scale, n.Position.Y.Offset - 76)}, 0.2)
+    end
+
+    local NF = newFrame(ScreenGui, UDim2.new(0,240,0,66), UDim2.new(1,-258,1,20), T.BG_SIDEBAR, 50)
+    corner(NF, 10)
+    local ns = stroke(NF, typeColor, 1)
+    ns.Transparency = 0.45
+
+    local bar = newFrame(NF, UDim2.new(0,3,0.65,0), UDim2.new(0,0,0.175,0), typeColor, 51)
+    corner(bar, 2)
+
+    local nt = newLabel(NF, title, 12, T.TEXT1, Enum.Font.GothamBold)
+    nt.Size = UDim2.new(1,-16,0,20); nt.Position = UDim2.new(0,12,0,8); nt.ZIndex = 51
+
+    local nm = newLabel(NF, text, 11, T.TEXT2, Enum.Font.Gotham)
+    nm.Size = UDim2.new(1,-16,0,28); nm.Position = UDim2.new(0,12,0,28)
+    nm.TextWrapped = true; nm.ZIndex = 51
+
+    local npBG = newFrame(NF, UDim2.new(1,0,0,2), UDim2.new(0,0,1,-2), T.BG_ACTIVE, 51)
+    corner(npBG, 1)
+    local npFill = newFrame(npBG, UDim2.new(1,0,1,0), UDim2.new(0,0,0,0), typeColor, 52)
+    corner(npFill, 1)
+
+    tw(NF, {Position = UDim2.new(1,-258,1,-86)}, 0.3, Enum.EasingStyle.Back)
+    table.insert(notifStack, NF)
+    tw(npFill, {Size = UDim2.new(0,0,1,0)}, duration, Enum.EasingStyle.Linear)
+
+    task.delay(duration, function()
+        tw(NF, {Position = UDim2.new(1,20, NF.Position.Y.Scale, NF.Position.Y.Offset)}, 0.22)
+        task.delay(0.25, function()
+            local idx = table.find(notifStack, NF)
+            if idx then table.remove(notifStack, idx) end
+            pcall(function() NF:Destroy() end)
+        end)
+    end)
+end
+
+-- ═══════════════════════════════════════════════
+--  FUNGSI BUAT PAGE
+-- ═══════════════════════════════════════════════
+local allPages = {}
+local activePage = nil
+
+local function setActivePage(pg)
+    for _, p in ipairs(allPages) do
+        p.scroll.Visible = false
+        tw(p.btn, {BackgroundTransparency = 1}, 0.15)
+        tw(p.bar, {BackgroundTransparency = 1}, 0.15)
+        tw(p.iconL, {TextColor3 = T.TEXT3}, 0.15)
+        tw(p.nameL, {TextColor3 = T.TEXT2}, 0.15)
+    end
+    pg.scroll.Visible = true
+    activePage = pg
+    tw(pg.btn, {BackgroundTransparency = 0.82, BackgroundColor3 = T.BG_ACTIVE}, 0.15)
+    tw(pg.bar, {BackgroundTransparency = 0}, 0.15)
+    tw(pg.iconL, {TextColor3 = T.ACCENT_GLOW}, 0.15)
+    tw(pg.nameL, {TextColor3 = T.TEXT1}, 0.15)
+end
+
+local function AddPage(name, icon)
+    icon = icon or "◈"
+
+    -- ── TOMBOL HALAMAN DI SIDEBAR ──────────────
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1,0,0,36)
+    Btn.BackgroundColor3 = T.BG_ACTIVE
+    Btn.BackgroundTransparency = 1
+    Btn.BorderSizePixel = 0
+    Btn.Text = ""
+    Btn.ZIndex = 13
+    Btn.LayoutOrder = #allPages + 1
+    Btn.Parent = PageScroll
+    corner(Btn, 7)
+
+    local iconL = newLabel(Btn, icon, 13, T.TEXT3, Enum.Font.GothamSemibold)
+    iconL.Size = UDim2.new(0,22,1,0)
+    iconL.Position = UDim2.new(0,10,0,0)
+    iconL.ZIndex = 14
+
+    local nameL = newLabel(Btn, name, 12, T.TEXT2, Enum.Font.GothamSemibold)
+    nameL.Size = UDim2.new(1,-38,1,0)
+    nameL.Position = UDim2.new(0,34,0,0)
+    nameL.ZIndex = 14
+
+    local bar = newFrame(Btn, UDim2.new(0,3,0,18), UDim2.new(0,0,0.5,-9), T.ACCENT, 14)
+    bar.BackgroundTransparency = 1
+    corner(bar, 2)
+
+    -- ── SCROLL AREA KONTEN ────────────────────
+    local scroll = Instance.new("ScrollingFrame")
+    scroll.Size = UDim2.new(1,-8,1,-8)
+    scroll.Position = UDim2.new(0,4,0,4)
+    scroll.BackgroundTransparency = 1
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 3
+    scroll.ScrollBarImageColor3 = T.ACCENT_DIM
+    scroll.CanvasSize = UDim2.new(0,0,0,0)
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.Visible = false
+    scroll.ZIndex = 12
+    scroll.Parent = ContentArea
+
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0,5)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = scroll
+
+    local pad = Instance.new("UIPadding")
+    pad.PaddingTop    = UDim.new(0,8)
+    pad.PaddingBottom = UDim.new(0,10)
+    pad.PaddingLeft   = UDim.new(0,6)
+    pad.PaddingRight  = UDim.new(0,8)
+    pad.Parent = scroll
+
+    local pg = {btn=Btn, bar=bar, iconL=iconL, nameL=nameL, scroll=scroll, itemN=0}
+    table.insert(allPages, pg)
+
+    Btn.MouseButton1Click:Connect(function() setActivePage(pg) end)
+    Btn.MouseEnter:Connect(function()
+        if activePage ~= pg then tw(Btn,{BackgroundTransparency=0.9},0.1) end
+    end)
+    Btn.MouseLeave:Connect(function()
+        if activePage ~= pg then tw(Btn,{BackgroundTransparency=1},0.1) end
+    end)
+
+    if #allPages == 1 then setActivePage(pg) end
+
+    -- ──────────────────────────────────────────
+    --  KOMPONEN
+    -- ──────────────────────────────────────────
+
+    local Page = {}
+
+    -- Helper buat row dasar
+    local function baseRow(h, name2)
+        pg.itemN = pg.itemN + 1
+        local r = newFrame(scroll, UDim2.new(1,0,0,h), UDim2.new(0,0,0,0), T.BG_ELEMENT, 13)
+        r.Name = name2 or "Row"
+        r.LayoutOrder = pg.itemN
+        corner(r, 8)
+        stroke(r, T.BORDER, 1)
+        r.MouseEnter:Connect(function() tw(r,{BackgroundColor3=T.BG_HOVER},0.1) end)
+        r.MouseLeave:Connect(function() tw(r,{BackgroundColor3=T.BG_ELEMENT},0.1) end)
+        return r
+    end
+
+    -- ── SECTION ─────────────────────────
+    function Page:AddSection(sname)
+        pg.itemN = pg.itemN + 1
+        local f = newFrame(scroll, UDim2.new(1,0,0,22), UDim2.new(0,0,0,0), T.BG_PAGE, 13)
+        f.BackgroundTransparency = 1
+        f.LayoutOrder = pg.itemN
+        local l1 = newFrame(f, UDim2.new(0,10,0,1), UDim2.new(0,0,0.5,0), T.BORDER_B, 13)
+        local lbl = newLabel(f, (sname or "Section"):upper(), 10, T.TEXT3, Enum.Font.GothamBold)
+        lbl.Size = UDim2.new(1,-20,1,0)
+        lbl.Position = UDim2.new(0,16,0,0)
+        lbl.ZIndex = 13
+        -- tambahkan spacing
+        local spacer = newLabel(lbl, "", 1, T.TEXT3)
+        return Page
+    end
+
+    -- ── TOGGLE ──────────────────────────
+    function Page:AddToggle(cfg)
+        cfg = cfg or {}
+        local lname    = cfg.Name     or "Toggle"
+        local desc     = cfg.Desc     or nil
+        local state    = cfg.Default  or false
+        local callback = cfg.Callback or function() end
+        local h        = desc and 54 or 42
+
+        local r = baseRow(h, "Toggle_"..lname)
+
+        local lbl = newLabel(r, lname, 13, T.TEXT1, Enum.Font.GothamSemibold)
+        lbl.Size = UDim2.new(1,-70,0, desc and 20 or 0)
+        lbl.Position = UDim2.new(0,12, 0, desc and 9 or 0)
+        if not desc then lbl.Size = UDim2.new(1,-70,1,0) end
+        lbl.ZIndex = 14
+
+        if desc then
+            local dl = newLabel(r, desc, 11, T.TEXT3, Enum.Font.Gotham)
+            dl.Size = UDim2.new(1,-70,0,16)
+            dl.Position = UDim2.new(0,12,0,29)
+            dl.ZIndex = 14
+        end
+
+        -- Track
+        local track = newFrame(r, UDim2.new(0,40,0,22), UDim2.new(1,-52,0.5,-11), state and T.TOG_ON or T.TOG_OFF, 14)
+        corner(track, 11)
+
+        -- Knob
+        local knob = newFrame(track, UDim2.new(0,16,0,16), UDim2.new(0, state and 21 or 3, 0.5,-8), T.TOG_KNOB, 15)
+        corner(knob, 8)
+
+        local function refresh()
+            if state then
+                tw(track,{BackgroundColor3=T.TOG_ON},0.18)
+                tw(knob,{Position=UDim2.new(0,21,0.5,-8)},0.18,Enum.EasingStyle.Back)
+            else
+                tw(track,{BackgroundColor3=T.TOG_OFF},0.18)
+                tw(knob,{Position=UDim2.new(0,3,0.5,-8)},0.18,Enum.EasingStyle.Back)
+            end
+            pcall(callback, state)
+        end
+
+        local hitbox = Instance.new("TextButton")
+        hitbox.Size = UDim2.new(1,0,1,0)
+        hitbox.BackgroundTransparency = 1
+        hitbox.Text = ""
+        hitbox.ZIndex = 16
+        hitbox.Parent = r
+        hitbox.MouseButton1Click:Connect(function()
+            state = not state
+            refresh()
+        end)
+
+        local obj = {}
+        function obj:Set(v) state = v; refresh() end
+        function obj:Get() return state end
+        return obj
+    end
+
+    -- ── BUTTON ──────────────────────────
+    function Page:AddButton(cfg)
+        cfg = cfg or {}
+        local lname    = cfg.Name     or "Button"
+        local callback = cfg.Callback or function() end
+
+        local r = baseRow(42, "Btn_"..lname)
+
+        local lbl = newLabel(r, lname, 13, T.TEXT1, Enum.Font.GothamSemibold)
+        lbl.Size = UDim2.new(1,-50,1,0)
+        lbl.Position = UDim2.new(0,12,0,0)
+        lbl.ZIndex = 14
+
+        local arr = newLabel(r, "›", 18, T.TEXT3, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
+        arr.Size = UDim2.new(0,28,1,0)
+        arr.Position = UDim2.new(1,-30,0,0)
+        arr.ZIndex = 14
+
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1,0,1,0)
+        btn.BackgroundTransparency = 1
+        btn.Text = ""; btn.ZIndex = 15; btn.Parent = r
+
+        btn.MouseEnter:Connect(function()
+            tw(r,{BackgroundColor3=T.BG_HOVER},0.1)
+            tw(arr,{TextColor3=T.ACCENT_GLOW, Position=UDim2.new(1,-24,0,0)},0.12)
+        end)
+        btn.MouseLeave:Connect(function()
+            tw(r,{BackgroundColor3=T.BG_ELEMENT},0.1)
+            tw(arr,{TextColor3=T.TEXT3, Position=UDim2.new(1,-30,0,0)},0.12)
+        end)
+        btn.MouseButton1Down:Connect(function() tw(r,{BackgroundColor3=T.BG_ACTIVE},0.07) end)
+        btn.MouseButton1Up:Connect(function()   tw(r,{BackgroundColor3=T.BG_HOVER},0.07)  end)
+        btn.MouseButton1Click:Connect(function() pcall(callback) end)
+
+        return Page
+    end
+
+    -- ── SLIDER ──────────────────────────
+    function Page:AddSlider(cfg)
+        cfg = cfg or {}
+        local lname    = cfg.Name     or "Slider"
+        local minV     = cfg.Min      or 0
+        local maxV     = cfg.Max      or 100
+        local defV     = math.clamp(cfg.Default or 50, cfg.Min or 0, cfg.Max or 100)
+        local suffix   = cfg.Suffix   or ""
+        local callback = cfg.Callback or function() end
+
+        local value = defV
+        local r = baseRow(58, "Slider_"..lname)
+
+        local lbl = newLabel(r, lname, 13, T.TEXT1, Enum.Font.GothamSemibold)
+        lbl.Size = UDim2.new(0.65,0,0,22)
+        lbl.Position = UDim2.new(0,12,0,8)
+        lbl.ZIndex = 14
+
+        local valL = newLabel(r, tostring(value)..suffix, 12, T.ACCENT_GLOW, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
+        valL.Size = UDim2.new(0.3,0,0,22)
+        valL.Position = UDim2.new(0.68,0,0,8)
+        valL.ZIndex = 14
+
+        local trackBG = newFrame(r, UDim2.new(1,-24,0,6), UDim2.new(0,12,0,40), T.BG_ACTIVE, 14)
+        corner(trackBG, 3)
+
+        local pct = (value - minV)/(maxV - minV)
+        local fill = newFrame(trackBG, UDim2.new(pct,0,1,0), UDim2.new(0,0,0,0), T.ACCENT, 15)
+        corner(fill, 3)
+
+        -- gradient fill
+        local grad = Instance.new("UIGradient")
+        grad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, T.ACCENT_DIM),
+            ColorSequenceKeypoint.new(1, T.ACCENT_GLOW),
+        })
+        grad.Rotation = 90
+        grad.Parent = fill
+
+        local kn = newFrame(trackBG, UDim2.new(0,14,0,14), UDim2.new(pct,0,0.5,-7), T.TOG_KNOB, 16)
+        kn.AnchorPoint = Vector2.new(0.5, 0)
+        corner(kn, 7)
+        stroke(kn, T.ACCENT, 2)
+
+        local sliding = false
+        local hitbox = Instance.new("TextButton")
+        hitbox.Size = UDim2.new(1,0,3,0)
+        hitbox.Position = UDim2.new(0,0,-1,0)
+        hitbox.BackgroundTransparency = 1
+        hitbox.Text = ""; hitbox.ZIndex = 17; hitbox.Parent = trackBG
+        hitbox.MouseButton1Down:Connect(function() sliding = true end)
+        UserInputService.InputEnded:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseButton1 then sliding = false end
+        end)
+        UserInputService.InputChanged:Connect(function(i)
+            if sliding and i.UserInputType == Enum.UserInputType.MouseMovement then
+                local rel = math.clamp((i.Position.X - trackBG.AbsolutePosition.X)/trackBG.AbsoluteSize.X, 0, 1)
+                value = math.floor(minV + rel*(maxV - minV))
+                local np = (value - minV)/(maxV - minV)
+                fill.Size = UDim2.new(np,0,1,0)
+                kn.Position = UDim2.new(np,0,0.5,-7)
+                valL.Text = tostring(value)..suffix
+                pcall(callback, value)
+            end
+        end)
+
+        local obj = {}
+        function obj:Get() return value end
+        function obj:Set(v)
+            value = math.clamp(v, minV, maxV)
+            local np = (value - minV)/(maxV - minV)
+            fill.Size = UDim2.new(np,0,1,0)
+            kn.Position = UDim2.new(np,0,0.5,-7)
+            valL.Text = tostring(value)..suffix
+        end
+        return obj
+    end
+
+    -- ── TEXTBOX ─────────────────────────
+    function Page:AddTextbox(cfg)
+        cfg = cfg or {}
+        local lname       = cfg.Name        or "Textbox"
+        local placeholder = cfg.Placeholder or "Ketik di sini..."
+        local callback    = cfg.Callback    or function() end
+
+        local r = baseRow(56, "TB_"..lname)
+
+        local lbl = newLabel(r, lname, 11, T.TEXT2, Enum.Font.GothamSemibold)
+        lbl.Size = UDim2.new(1,-16,0,18)
+        lbl.Position = UDim2.new(0,12,0,6)
+        lbl.ZIndex = 14
+
+        local bg = newFrame(r, UDim2.new(1,-24,0,24), UDim2.new(0,12,0,26), T.BG_ACTIVE, 14)
+        corner(bg, 5)
+        local s2 = stroke(bg, T.BORDER, 1)
+
+        local tb = Instance.new("TextBox")
+        tb.Size = UDim2.new(1,-12,1,0)
+        tb.Position = UDim2.new(0,6,0,0)
+        tb.BackgroundTransparency = 1
+        tb.PlaceholderText = placeholder
+        tb.PlaceholderColor3 = T.TEXT3
+        tb.Text = ""
+        tb.TextColor3 = T.TEXT1
+        tb.TextSize = 12
+        tb.Font = Enum.Font.Gotham
+        tb.TextXAlignment = Enum.TextXAlignment.Left
+        tb.ClearTextOnFocus = false
+        tb.ZIndex = 15
+        tb.Parent = bg
+
+        tb.Focused:Connect(function()    tw(s2,{Color=T.ACCENT, Transparency=0.3},0.15) end)
+        tb.FocusLost:Connect(function(enter)
+            tw(s2,{Color=T.BORDER, Transparency=0},0.15)
+            if enter then pcall(callback, tb.Text) end
+        end)
+
+        local obj = {}
+        function obj:Get() return tb.Text end
+        function obj:Set(v) tb.Text = v end
+        return obj
+    end
+
+    -- ── DROPDOWN ────────────────────────
+    function Page:AddDropdown(cfg)
+        cfg = cfg or {}
+        local lname    = cfg.Name     or "Dropdown"
+        local options  = cfg.Options  or {"Opsi 1","Opsi 2"}
+        local callback = cfg.Callback or function() end
+
+        local selected = options[1] or "Pilih..."
+        local open = false
+
+        pg.itemN = pg.itemN + 1
+        local container = newFrame(scroll, UDim2.new(1,0,0,42), UDim2.new(0,0,0,0), T.BG_ELEMENT, 20)
+        container.LayoutOrder = pg.itemN
+        container.ClipsDescendants = false
+        corner(container, 8)
+        stroke(container, T.BORDER, 1)
+
+        local lbl = newLabel(container, lname, 13, T.TEXT1, Enum.Font.GothamSemibold)
+        lbl.Size = UDim2.new(0.5,0,1,0)
+        lbl.Position = UDim2.new(0,12,0,0)
+        lbl.ZIndex = 21
+
+        local selL = newLabel(container, selected, 12, T.ACCENT_GLOW, Enum.Font.Gotham, Enum.TextXAlignment.Right)
+        selL.Size = UDim2.new(0.38,0,1,0)
+        selL.Position = UDim2.new(0.5,0,0,0)
+        selL.ZIndex = 21
+
+        local arrL = newLabel(container, "▾", 12, T.TEXT3, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
+        arrL.Size = UDim2.new(0,22,1,0)
+        arrL.Position = UDim2.new(1,-24,0,0)
+        arrL.ZIndex = 21
+
+        local maxShow = math.min(#options, 5)
+        local listH = maxShow * 32
+
+        local list = newFrame(container, UDim2.new(1,0,0,0), UDim2.new(0,0,1,4), T.BG_SIDEBAR, 25)
+        list.ClipsDescendants = true
+        list.Visible = false
+        list.ZIndex = 25
+        corner(list, 8)
+        stroke(list, T.BORDER, 1)
+
+        local listLayout = Instance.new("UIListLayout")
+        listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        listLayout.Parent = list
+
+        for i, opt in ipairs(options) do
+            local ob = Instance.new("TextButton")
+            ob.Size = UDim2.new(1,0,0,32)
+            ob.BackgroundTransparency = 1
+            ob.BackgroundColor3 = T.BG_ACTIVE
+            ob.BorderSizePixel = 0
+            ob.Text = ""; ob.ZIndex = 26; ob.LayoutOrder = i; ob.Parent = list
+            local ol = newLabel(ob, opt, 12, T.TEXT2, Enum.Font.Gotham)
+            ol.Size = UDim2.new(1,-20,1,0)
+            ol.Position = UDim2.new(0,12,0,0)
+            ol.ZIndex = 27
+            ob.MouseEnter:Connect(function() tw(ob,{BackgroundTransparency=0.85},0.1); tw(ol,{TextColor3=T.TEXT1},0.1) end)
+            ob.MouseLeave:Connect(function() tw(ob,{BackgroundTransparency=1},0.1);   tw(ol,{TextColor3=T.TEXT2},0.1) end)
+            ob.MouseButton1Click:Connect(function()
+                selected = opt; selL.Text = opt
+                open = false
+                tw(list,{Size=UDim2.new(1,0,0,0)},0.18)
+                tw(arrL,{Rotation=0},0.18)
+                task.delay(0.2, function() list.Visible = false; container.Size = UDim2.new(1,0,0,42) end)
+                pcall(callback, opt)
+            end)
+        end
+
+        local mainBtn = Instance.new("TextButton")
+        mainBtn.Size = UDim2.new(1,0,0,42)
+        mainBtn.BackgroundTransparency = 1
+        mainBtn.Text = ""; mainBtn.ZIndex = 22; mainBtn.Parent = container
+        mainBtn.MouseEnter:Connect(function() tw(container,{BackgroundColor3=T.BG_HOVER},0.1) end)
+        mainBtn.MouseLeave:Connect(function() tw(container,{BackgroundColor3=T.BG_ELEMENT},0.1) end)
+        mainBtn.MouseButton1Click:Connect(function()
+            open = not open
+            if open then
+                list.Visible = true
+                list.Size = UDim2.new(1,0,0,0)
+                container.Size = UDim2.new(1,0,0,42+listH+6)
+                tw(list,{Size=UDim2.new(1,0,0,listH)},0.22,Enum.EasingStyle.Back)
+                tw(arrL,{Rotation=180},0.18)
+            else
+                tw(list,{Size=UDim2.new(1,0,0,0)},0.18)
+                tw(arrL,{Rotation=0},0.18)
+                task.delay(0.2, function() list.Visible = false; container.Size = UDim2.new(1,0,0,42) end)
+            end
+        end)
+
+        local obj = {}
+        function obj:Get() return selected end
+        function obj:Set(v) selected = v; selL.Text = v end
+        return obj
+    end
+
+    -- ── KEYBIND ─────────────────────────
+    function Page:AddKeybind(cfg)
+        cfg = cfg or {}
+        local lname    = cfg.Name     or "Keybind"
+        local defKey   = cfg.Default  or Enum.KeyCode.F
+        local callback = cfg.Callback or function() end
+
+        local curKey  = defKey
+        local listening = false
+
+        local r = baseRow(42, "KB_"..lname)
+
+        local lbl = newLabel(r, lname, 13, T.TEXT1, Enum.Font.GothamSemibold)
+        lbl.Size = UDim2.new(0.6,0,1,0)
+        lbl.Position = UDim2.new(0,12,0,0)
+        lbl.ZIndex = 14
+
+        local badge = Instance.new("TextButton")
+        badge.Size = UDim2.new(0,58,0,26)
+        badge.Position = UDim2.new(1,-66,0.5,-13)
+        badge.BackgroundColor3 = T.BG_ACTIVE
+        badge.BorderSizePixel = 0
+        badge.Text = curKey.Name
+        badge.TextColor3 = T.ACCENT_GLOW
+        badge.TextSize = 11
+        badge.Font = Enum.Font.GothamBold
+        badge.ZIndex = 14
+        badge.Parent = r
+        corner(badge, 5)
+        stroke(badge, T.BORDER_B, 1)
+
+        badge.MouseButton1Click:Connect(function()
+            listening = true
+            badge.Text = "..."
+            badge.TextColor3 = T.WARNING
+        end)
+        UserInputService.InputBegan:Connect(function(i, gpe)
+            if listening and not gpe and i.UserInputType == Enum.UserInputType.Keyboard then
+                curKey = i.KeyCode
+                badge.Text = i.KeyCode.Name
+                badge.TextColor3 = T.ACCENT_GLOW
+                listening = false
+            elseif not gpe and not listening and i.KeyCode == curKey then
+                pcall(callback, curKey)
+            end
+        end)
+
+        local obj = {}
+        function obj:GetKey() return curKey end
+        return obj
+    end
+
+    -- ── LABEL / INFO ────────────────────
+    function Page:AddLabel(cfg)
+        cfg = cfg or {}
+        local txt   = cfg.Text  or "Label"
+        local color = cfg.Color or T.TEXT2
+
+        pg.itemN = pg.itemN + 1
+        local f = newFrame(scroll, UDim2.new(1,0,0,30), UDim2.new(0,0,0,0), T.BG_PAGE, 13)
+        f.BackgroundTransparency = 1
+        f.LayoutOrder = pg.itemN
+        local l = newLabel(f, txt, 12, color, Enum.Font.Gotham)
+        l.Size = UDim2.new(1,-16,1,0)
+        l.Position = UDim2.new(0,12,0,0)
+        l.ZIndex = 14
+
+        local obj = {}
+        function obj:Set(t) l.Text = t end
+        function obj:Get() return l.Text end
+        return obj
+    end
+
+    -- ── COLOR PICKER ────────────────────
+    function Page:AddColorPicker(cfg)
+        cfg = cfg or {}
+        local lname    = cfg.Name     or "Warna"
+        local default  = cfg.Default  or Color3.fromRGB(100,90,255)
+        local callback = cfg.Callback or function() end
+
+        local curColor = default
+        local r = baseRow(42, "CP_"..lname)
+
+        local lbl = newLabel(r, lname, 13, T.TEXT1, Enum.Font.GothamSemibold)
+        lbl.Size = UDim2.new(0.7,0,1,0)
+        lbl.Position = UDim2.new(0,12,0,0)
+        lbl.ZIndex = 14
+
+        local box = Instance.new("TextButton")
+        box.Size = UDim2.new(0,44,0,24)
+        box.Position = UDim2.new(1,-52,0.5,-12)
+        box.BackgroundColor3 = curColor
+        box.BorderSizePixel = 0
+        box.Text = ""; box.ZIndex = 14; box.Parent = r
+        corner(box, 5)
+        stroke(box, T.BORDER_B, 1)
+
+        box.MouseButton1Click:Connect(function()
+            local h,s,v = Color3.toHSV(curColor)
+            h = (h + 0.08) % 1
+            curColor = Color3.fromHSV(h,s,v)
+            tw(box,{BackgroundColor3=curColor},0.15)
+            pcall(callback, curColor)
+        end)
+
+        local obj = {}
+        function obj:Get() return curColor end
+        function obj:Set(c) curColor=c; tw(box,{BackgroundColor3=c},0.15); pcall(callback,c) end
+        return obj
+    end
+
+    -- ── NOTIFY (dari page) ───────────────
+    function Page:Notify(cfg) Notify(cfg) end
+
+    return Page
+end
+
+-- ═══════════════════════════════════════════════
+--  KEYBIND GLOBAL TOGGLE UI
+-- ═══════════════════════════════════════════════
+UserInputService.InputBegan:Connect(function(i, gpe)
+    if not gpe and i.KeyCode == Enum.KeyCode.RightShift then
+        Main.Visible = not Main.Visible
+    end
+end)
+
+-- ═══════════════════════════════════════════════
+--  ████████████████████████████████████████████
+--                YOUR SCRIPT DI BAWAH
+--  ████████████████████████████████████████████
+-- ═══════════════════════════════════════════════
+
+-- ── PAGE 1: MAIN ─────────────────────────────
+local MainPage = AddPage("Main", "⬡")
+
+MainPage:AddSection("Player")
+
+MainPage:AddToggle({
+    Name     = "God Mode",
+    Desc     = "Tidak bisa mati",
+    Default  = false,
+    Callback = function(state)
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                if state then
+                    hum.MaxHealth = math.huge
+                    hum.Health    = math.huge
+                end
+            end
+        end
+        Notify({ Title="God Mode", Text= state and "Aktif" or "Nonaktif",
+                 Type= state and "success" or "danger", Duration=2 })
+    end,
+})
+
+MainPage:AddToggle({
+    Name     = "Infinite Jump",
+    Default  = false,
+    Callback = function(state)
+        _G.InfJump = state
+        Notify({ Title="Infinite Jump", Text= state and "Aktif" or "Nonaktif",
+                 Type= state and "success" or "danger", Duration=2 })
+    end,
+})
+
+-- Infinite jump logic
+UserInputService.JumpRequest:Connect(function()
+    if _G.InfJump then
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+        end
+    end
+end)
+
+MainPage:AddSlider({
+    Name     = "Walk Speed",
+    Min      = 16,
+    Max      = 300,
+    Default  = 16,
+    Suffix   = " WS",
+    Callback = function(val)
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then hum.WalkSpeed = val end
+        end
+    end,
+})
+
+MainPage:AddSlider({
+    Name     = "Jump Power",
+    Min      = 50,
+    Max      = 500,
+    Default  = 50,
+    Suffix   = " JP",
+    Callback = function(val)
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then hum.JumpPower = val end
+        end
+    end,
+})
+
+MainPage:AddSection("Actions")
+
+MainPage:AddButton({
+    Name     = "Teleport ke Spawn",
+    Callback = function()
+        local char = LocalPlayer.Character
+        if char then
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if hrp then hrp.CFrame = CFrame.new(0, 5, 0) end
+        end
+        Notify({ Title="Teleport", Text="Berhasil teleport ke spawn!", Type="success", Duration=3 })
+    end,
+})
+
+MainPage:AddButton({
+    Name     = "Reset Karakter",
+    Callback = function()
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then hum.Health = 0 end
+        end
+    end,
+})
+
+MainPage:AddButton({
+    Name     = "Copy My Position",
+    Callback = function()
+        local char = LocalPlayer.Character
+        if char then
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local p = hrp.Position
+                local txt = string.format("X=%.1f Y=%.1f Z=%.1f", p.X, p.Y, p.Z)
+                Notify({ Title="Posisi Karakter", Text=txt, Type="info", Duration=4 })
+            end
+        end
+    end,
+})
+
+-- ── PAGE 2: VISUAL ────────────────────────────
+local VisualPage = AddPage("Visual", "◈")
+
+VisualPage:AddSection("ESP")
+
+local espEnabled = false
+local espHighlights = {}
+
+local function clearESP()
+    for _, h in ipairs(espHighlights) do pcall(function() h:Destroy() end) end
+    espHighlights = {}
+end
+
+local function refreshESP()
+    clearESP()
+    if not espEnabled then return end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local ok2, hl = pcall(function()
+                local h = Instance.new("SelectionBox")
+                h.Adornee = p.Character
+                h.Color3 = Color3.fromRGB(100,90,255)
+                h.LineThickness = 0.04
+                h.SurfaceTransparency = 0.85
+                h.SurfaceColor3 = Color3.fromRGB(100,90,255)
+                h.Parent = CoreGui
+                return h
+            end)
+            if ok2 then table.insert(espHighlights, hl) end
+        end
+    end
+end
+
+VisualPage:AddToggle({
+    Name     = "Player ESP",
+    Default  = false,
+    Callback = function(state)
+        espEnabled = state
+        refreshESP()
+        Notify({ Title="Player ESP", Text=state and "Aktif" or "Nonaktif",
+                 Type=state and "success" or "danger", Duration=2 })
+    end,
+})
+
+VisualPage:AddToggle({
+    Name     = "Chams (Highlight)",
+    Default  = false,
+    Callback = function(state)
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character then
+                pcall(function()
+                    local existing = p.Character:FindFirstChildOfClass("Highlight")
+                    if state and not existing then
+                        local hl = Instance.new("Highlight")
+                        hl.FillColor = Color3.fromRGB(100,90,255)
+                        hl.OutlineColor = Color3.fromRGB(150,140,255)
+                        hl.FillTransparency = 0.6
+                        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        hl.Parent = p.Character
+                    elseif not state and existing then
+                        existing:Destroy()
+                    end
+                end)
+            end
+        end
+        Notify({ Title="Chams", Text=state and "Aktif" or "Nonaktif",
+                 Type=state and "success" or "danger", Duration=2 })
+    end,
+})
+
+VisualPage:AddSection("World")
+
+VisualPage:AddToggle({
+    Name     = "Fullbright",
+    Default  = false,
+    Callback = function(state)
+        local lighting = game:GetService("Lighting")
+        if state then
+            lighting.Brightness = 5
+            lighting.GlobalShadows = false
+            lighting.FogEnd = 100000
+            lighting.ClockTime = 14
+        else
+            lighting.Brightness = 2
+            lighting.GlobalShadows = true
+        end
+        Notify({ Title="Fullbright", Text=state and "Aktif" or "Nonaktif",
+                 Type=state and "success" or "warning", Duration=2 })
+    end,
+})
+
+VisualPage:AddToggle({
+    Name     = "No Fog",
+    Default  = false,
+    Callback = function(state)
+        game:GetService("Lighting").FogEnd = state and 999999 or 100000
+    end,
+})
+
+-- ── PAGE 3: MISC ─────────────────────────────
+local MiscPage = AddPage("Misc", "⚙")
+
+MiscPage:AddSection("Settings")
+
+MiscPage:AddDropdown({
+    Name    = "Game Speed",
+    Options = { "Normal (1x)", "Cepat (2x)", "Lambat (0.5x)", "Beku (0x)" },
+    Callback = function(opt)
+        local speeds = { ["Normal (1x)"] = 1, ["Cepat (2x)"] = 2, ["Lambat (0.5x)"] = 0.5, ["Beku (0x)"] = 0 }
+        local spd = speeds[opt] or 1
+        workspace.Gravity = 196.2
+        game:GetService("RunService"):Set3dRenderingEnabled(true)
+        pcall(function() workspace:FindFirstChildOfClass("SpecialMesh") end)
+        Notify({ Title="Game Speed", Text="Set ke "..opt, Type="info", Duration=2 })
+    end,
+})
+
+MiscPage:AddTextbox({
+    Name        = "Teleport ke Posisi",
+    Placeholder = "X,Y,Z  contoh: 0,50,0",
+    Callback    = function(text)
+        local parts = string.split(text, ",")
+        if #parts == 3 then
+            local x,y,z = tonumber(parts[1]), tonumber(parts[2]), tonumber(parts[3])
+            if x and y and z then
+                local char = LocalPlayer.Character
+                if char then
+                    local hrp = char:FindFirstChild("HumanoidRootPart")
+                    if hrp then hrp.CFrame = CFrame.new(x,y,z) end
+                end
+                Notify({ Title="Teleport", Text=string.format("Ke %.0f, %.0f, %.0f",x,y,z), Type="success", Duration=3 })
+            end
+        end
+    end,
+})
+
+MiscPage:AddKeybind({
+    Name     = "Toggle Menu",
+    Default  = Enum.KeyCode.RightShift,
+    Callback = function()
+        Main.Visible = not Main.Visible
+    end,
+})
+
+MiscPage:AddSection("Info")
+
+local serverLabel = MiscPage:AddLabel({ Text="Server: menghitung...", Color=T.TEXT2 })
+local pingLabel   = MiscPage:AddLabel({ Text="Ping: --", Color=T.TEXT2 })
+
+-- Update info setiap 2 detik
+task.spawn(function()
+    while task.wait(2) do
+        local plrCount = #Players:GetPlayers()
+        pcall(function()
+            serverLabel:Set("Players: "..plrCount.." | JobId: "..game.JobId:sub(1,8).."...")
+        end)
+        pcall(function()
+            local stats = game:GetService("Stats")
+            local ping = math.floor(stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+            pingLabel:Set("Ping: "..tostring(ping).." ms")
+        end)
+    end
+end)
+
+MiscPage:AddButton({
+    Name     = "Test Notifikasi Info",
+    Callback = function()
+        Notify({ Title="Nexus Hub", Text="Ini contoh notifikasi info!", Type="info", Duration=3 })
+    end,
+})
+
+MiscPage:AddButton({
+    Name     = "Test Notifikasi Success",
+    Callback = function()
+        Notify({ Title="Berhasil!", Text="Operasi sukses dilakukan.", Type="success", Duration=3 })
+    end,
+})
+
+-- ── PAGE 4: COMBAT ────────────────────────────
+local CombatPage = AddPage("Combat", "⚔")
+
+CombatPage:AddSection("Aimbot")
+
+local aimbotEnabled = false
+local aimbotPart = "Head"
+local aimbotFOV  = 200
+
+CombatPage:AddToggle({
+    Name     = "Aimbot",
+    Default  = false,
+    Callback = function(state)
+        aimbotEnabled = state
+        Notify({ Title="Aimbot", Text=state and "Aktif" or "Nonaktif",
+                 Type=state and "success" or "danger", Duration=2 })
+    end,
+})
+
+CombatPage:AddSlider({
+    Name    = "FOV",
+    Min     = 50,
+    Max     = 600,
+    Default = 200,
+    Suffix  = " px",
+    Callback = function(val)
+        aimbotFOV = val
+    end,
+})
+
+CombatPage:AddDropdown({
+    Name    = "Hit Part",
+    Options = { "Head", "HumanoidRootPart", "Torso" },
+    Callback = function(opt)
+        aimbotPart = opt
+        Notify({ Title="Hit Part", Text="Target: "..opt, Type="info", Duration=2 })
+    end,
+})
+
+CombatPage:AddSection("Silent Aim")
+
+CombatPage:AddToggle({
+    Name     = "Silent Aim",
+    Default  = false,
+    Callback = function(state)
+        Notify({ Title="Silent Aim", Text=state and "Aktif" or "Nonaktif",
+                 Type=state and "success" or "danger", Duration=2 })
+    end,
+})
+
+-- Aimbot loop
+RunService.RenderStepped:Connect(function()
+    if not aimbotEnabled then return end
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+    local closestPlayer = nil
+    local closestDist   = aimbotFOV
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local target = p.Character:FindFirstChild(aimbotPart)
+            if target then
+                local screenPos, onScreen = camera:WorldToViewportPoint(target.Position)
+                if onScreen then
+                    local center = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+                    local dist   = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                    if dist < closestDist then
+                        closestDist   = dist
+                        closestPlayer = target
+                    end
+                end
+            end
+        end
+    end
+
+    if closestPlayer then
+        local goal = CFrame.new(camera.CFrame.Position, closestPlayer.Position)
+        camera.CFrame = camera.CFrame:Lerp(goal, 0.15)
+    end
+end)
+
+-- ═══════════════════════════════════════════════
+--  NOTIFIKASI SAMBUTAN
+-- ═══════════════════════════════════════════════
+task.delay(0.8, function()
+    Notify({
+        Title    = "Nexus Hub Loaded!",
+        Text     = "Tekan RightShift untuk hide/show. Selamat bermain!",
+        Type     = "success",
+        Duration = 5,
+    })
+end)
